@@ -1,0 +1,9 @@
+package ilex-fasta-test
+
+authors    = "Matthew Mosior"
+version    = 0.1.0
+sourcedir  = "src"
+depends    = ilex-fasta
+           , hedgehog
+main       = Main
+executable = "ilex-fasta-test"
