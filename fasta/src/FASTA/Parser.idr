@@ -145,7 +145,7 @@ fastainit = T1.do
 --------------------------------------------------------------------------------
 
 %runElab deriveParserState "FSz" "FST"
-  ["FIni", "FBroken", "FHdr", "FNoHdr", "FHdrAfterD", "FHdrAE", "FHdrToNLR", "FHdrToNLS", "FHdrDone", "FD", "FDNL", "FEmpty", "FComplete"]
+  ["FIni", "FBroken", "FHdr", "FHdrToNLR", "FHdrToNLS", "FHdrDone", "FD", "FDNL", "FEmpty", "FComplete"]
 
 --------------------------------------------------------------------------------
 --          Errors
@@ -154,12 +154,9 @@ fastainit = T1.do
 fastaErr : Arr32 FSz (FSTCK q -> F1 q (BoundedErr Void))
 fastaErr =
   arr32 FSz (unexpected [])
-    [ E FBroken $ unexpected ["incorrect format"]
-    , E FNoHdr $ unexpected ["no header line"]
-    , E FHdrAfterD $ unexpected ["header line found after sequence line"]
-    , E FHdrAE $ unexpected ["header line already encountered"]
-    , E FEmpty $ unexpected ["empty line"]
-    , E FHdr $ unexpected ["no sequence line(s)"]
+    [ E FBroken $ unexpected ["character other than '>'"]
+    , E FEmpty $ unexpected ["sequence data"]
+    , E FHdr $ unexpected ["sequence line"]
     ]
 
 --------------------------------------------------------------------------------
@@ -220,16 +217,13 @@ onEOI = T1.do
 fastaInit : DFA q FSz FSTCK
 fastaInit =
   dfa
-    [ conv linebreak (const $ pure FNoHdr)
-    , read '>' (\_ => onFASTAValueHdrS HeaderStart)
-    , read nucleotide (const $ pure FNoHdr)
+    [ read '>' (\_ => onFASTAValueHdrS HeaderStart)
     ]
 
 fastaHdrStrStart : DFA q FSz FSTCK
 fastaHdrStrStart =
   dfa
     [ read dot (onFASTAValueHdrR . HeaderValue)
-    , conv linebreak (const $ pure FBroken)
     ]
 
 fastaHdrStrRest : DFA q FSz FSTCK
@@ -242,9 +236,7 @@ fastaHdrStrRest =
 fastaFDInit : DFA q FSz FSTCK
 fastaFDInit =
   dfa
-    [ conv linebreak (const $ pure FEmpty)
-    , read '>' (const $ pure FHdrAE)
-    , read adenine (\_ => onFASTAValueAdenine Adenine)
+    [ read adenine (\_ => onFASTAValueAdenine Adenine)
     , read thymine (\_ => onFASTAValueThymine Thymine)
     , read guanine (\_ => onFASTAValueGuanine Guanine)
     , read cytosine (\_ => onFASTAValueCytosine Cytosine)
@@ -273,7 +265,7 @@ fastaSteps =
 
 fastaEOI : FST -> FSTCK q -> F1 q (Either (BoundedErr Void) FASTA)
 fastaEOI st x =
-  case st == FIni || st == FHdr || st == FEmpty || st == FNoHdr || st == FHdrAE || st == FBroken of
+  case st == FIni || st == FHdr || st == FEmpty || st == FBroken of
     True  => arrFail FSTCK fastaErr st x
     False => T1.do
       _ <- onEOI
