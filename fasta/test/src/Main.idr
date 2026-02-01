@@ -71,11 +71,11 @@ fastastrempty =
 
 fastastrnoheadererr : String
 fastastrnoheadererr =
-  "Error: Expected \"no header line\", but got 'T'\n\nvirtual: 1:2--1:3\n 1 | ATTG\n      ^\n"
-
+  "Error: Unexpected 'A'\n\nvirtual: 1:1--1:2\n 1 | ATTG\n     ^\n"
+  
 fastastrheaderaftersequenceerr : String
 fastastrheaderaftersequenceerr =
-  "Error: Expected \"header line already encountered\", but got 'x'\n\nvirtual: 3:3--3:4\n 1 | >x\n 2 | A\n 3 | >x\n       ^\n"
+  "Error: Unexpected '>'\n\nvirtual: 3:2--3:3\n 1 | >x\n 2 | A\n 3 | >x\n      ^\n"
 
 fastastrbadsequenceerr : String
 fastastrbadsequenceerr =
