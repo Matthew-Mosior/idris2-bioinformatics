@@ -1,1 +1,0 @@
-(parameterize ([optimize-level 3] [compile-file-message #f]) (compile-program "/home/matthew-mosior/Software/git/idris2-ilex/fasta/test/build/exec/ilex-fasta-test_app/ilex-fasta-test.ss"))
