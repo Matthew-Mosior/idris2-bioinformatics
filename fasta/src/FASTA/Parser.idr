@@ -18,32 +18,42 @@ import public Text.ILex
 %language ElabReflection
 
 --------------------------------------------------------------------------------
+--          Coordinate System
+--------------------------------------------------------------------------------
+
+public export
+data CoordinateSystem = ZeroBased
+                      | OneBased
+
+%runElab derive "CoordinateSystem" [Show,Eq]
+
+--------------------------------------------------------------------------------
 --          FASTAValue
 --------------------------------------------------------------------------------
 
 public export
 data FASTAValue : Type where
-  NL          : ByteString -> FASTAValue
-  HeaderStart : FASTAValue
-  HeaderValue : String -> FASTAValue
-  Adenine     : FASTAValue
-  Thymine     : FASTAValue
-  Guanine     : FASTAValue
-  Cytosine    : FASTAValue
+  NL          : (Nat, ByteString) -> FASTAValue
+  HeaderStart : Nat -> FASTAValue
+  HeaderValue : (Nat, String) -> FASTAValue
+  Adenine     : Nat -> FASTAValue
+  Thymine     : Nat -> FASTAValue
+  Guanine     : Nat -> FASTAValue
+  Cytosine    : Nat -> FASTAValue
 
 %runElab derive "FASTAValue" [Show,Eq]
 
 isHeader : FASTAValue -> Bool
-isHeader HeaderStart     = True
+isHeader (HeaderStart _) = True
 isHeader (HeaderValue _) = True
 isHeader _               = False
 
 isData : FASTAValue -> Bool
-isData Adenine  = True
-isData Thymine  = True
-isData Guanine  = True
-isData Cytosine = True
-isData _        = False
+isData (Adenine _)  = True
+isData (Thymine _)  = True
+isData (Guanine _)  = True
+isData (Cytosine _) = True
+isData _            = False
 
 --------------------------------------------------------------------------------
 --          FASTALine
@@ -96,14 +106,15 @@ cytosine = 'C'
 public export
 record FSTCK (q : Type) where
   constructor F
-  line        : Ref q Nat
-  col         : Ref q Nat
-  psns        : Ref q (SnocList Position)
-  strs        : Ref q (SnocList String)
-  err         : Ref q (Maybe $ BoundedErr Void)
-  fastavalues : Ref q (SnocList FASTAValue)
-  fastalines  : Ref q (SnocList FASTALine)
-  bytes       : Ref q ByteString
+  line         : Ref q Nat
+  col          : Ref q Nat
+  psns         : Ref q (SnocList Position)
+  strs         : Ref q (SnocList String)
+  err          : Ref q (Maybe $ BoundedErr Void)
+  fastavalues  : Ref q (SnocList FASTAValue)
+  fastalines   : Ref q (SnocList FASTALine)
+  fastacounter : Ref q Nat
+  bytes        : Ref q ByteString
 
 export %inline
 HasPosition FSTCK where
@@ -128,17 +139,31 @@ HasBytes FSTCK where
   bytes = FSTCK.bytes
 
 export
-fastainit : F1 q (FSTCK q)
-fastainit = T1.do
-  l  <- ref1 Z
-  c  <- ref1 Z
-  bs <- ref1 [<]
-  ss <- ref1 [<]
-  er <- ref1 Nothing
-  fvs <- ref1 [<]
-  fls <- ref1 [<]
-  by <- ref1 ""
-  pure (F l c bs ss er fvs fls by)
+fastainit : CoordinateSystem -> F1 q (FSTCK q)
+fastainit coordsys =
+  case coordsys of
+    ZeroBased => T1.do
+      l  <- ref1 Z
+      c  <- ref1 Z
+      bs <- ref1 [<]
+      ss <- ref1 [<]
+      er <- ref1 Nothing
+      fvs <- ref1 [<]
+      fls <- ref1 [<]
+      fc <- ref1 Z
+      by <- ref1 ""
+      pure (F l c bs ss er fvs fls fc by)
+    OneBased => T1.do
+      l  <- ref1 Z
+      c  <- ref1 Z
+      bs <- ref1 [<]
+      ss <- ref1 [<]
+      er <- ref1 Nothing
+      fvs <- ref1 [<]
+      fls <- ref1 [<]
+      fc <- ref1 (S Z)
+      by <- ref1 ""
+      pure (F l c bs ss er fvs fls fc by)
 
 --------------------------------------------------------------------------------
 --          Parser State
@@ -163,28 +188,42 @@ fastaErr =
 --          State Transitions
 --------------------------------------------------------------------------------
 
-onFASTAValueHdrS : (x : FSTCK q) => FASTAValue -> F1 q FST
-onFASTAValueHdrS v = push1 x.fastavalues v >> pure FHdrToNLS
+onFASTAValueHdrS : (x : FSTCK q) => F1 q FST
+onFASTAValueHdrS = T1.do
+  fc <- read1 x.fastacounter
+  push1 x.fastavalues (HeaderStart fc) >> write1 x.fastacounter (S fc) >> pure FHdrToNLS
 
-onFASTAValueHdrR : (x : FSTCK q) => FASTAValue -> F1 q FST
-onFASTAValueHdrR v = push1 x.fastavalues v >> pure FHdrToNLR
+onFASTAValueHdrR : (x : FSTCK q) => String -> F1 q FST
+onFASTAValueHdrR v = T1.do
+  fc <- read1 x.fastacounter
+  push1 x.fastavalues (HeaderValue (fc, v)) >> write1 x.fastacounter (S fc) >> pure FHdrToNLR
 
-onFASTAValueAdenine : (x : FSTCK q) => FASTAValue -> F1 q FST
-onFASTAValueAdenine v = push1 x.fastavalues v >> pure FD
+onFASTAValueAdenine : (x : FSTCK q) => F1 q FST
+onFASTAValueAdenine = T1.do
+  fc <- read1 x.fastacounter
+  push1 x.fastavalues (Adenine fc) >> write1 x.fastacounter (S fc) >> pure FD
 
-onFASTAValueThymine : (x : FSTCK q) => FASTAValue -> F1 q FST
-onFASTAValueThymine v = push1 x.fastavalues v >> pure FD
+onFASTAValueThymine : (x : FSTCK q) => F1 q FST
+onFASTAValueThymine = T1.do
+  fc <- read1 x.fastacounter
+  push1 x.fastavalues (Thymine fc) >> write1 x.fastacounter (S fc) >> pure FD
 
-onFASTAValueGuanine : (x : FSTCK q) => FASTAValue -> F1 q FST
-onFASTAValueGuanine v = push1 x.fastavalues v >> pure FD
+onFASTAValueGuanine : (x : FSTCK q) => F1 q FST
+onFASTAValueGuanine = T1.do
+  fc <- read1 x.fastacounter
+  push1 x.fastavalues (Guanine fc) >> write1 x.fastacounter (S fc) >> pure FD
 
-onFASTAValueCytosine : (x : FSTCK q) => FASTAValue -> F1 q FST
-onFASTAValueCytosine v = push1 x.fastavalues v >> pure FD
+onFASTAValueCytosine : (x : FSTCK q) => F1 q FST
+onFASTAValueCytosine = T1.do
+  fc <- read1 x.fastacounter
+  push1 x.fastavalues (Cytosine fc) >> write1 x.fastacounter (S fc) >> pure FD
 
-onNLFHdr : (x : FSTCK q) => FASTAValue -> F1 q FST
+onNLFHdr : (x : FSTCK q) => ByteString -> F1 q FST
 onNLFHdr v = T1.do
   incline 1
-  push1 x.fastavalues v
+  fc <- read1 x.fastacounter
+  push1 x.fastavalues (NL (fc, v))
+  write1 x.fastacounter (S fc)
   fvs@(_::_) <- getList x.fastavalues | [] => pure FEmpty
   case Prelude.any isHeader fvs && Prelude.any isData fvs of
     True  => pure FBroken
@@ -193,10 +232,12 @@ onNLFHdr v = T1.do
       push1 x.fastalines (MkFASTALine ln fvs)
       pure FHdrDone
 
-onNLFD : (x : FSTCK q) => FASTAValue -> F1 q FST
+onNLFD : (x : FSTCK q) => ByteString -> F1 q FST
 onNLFD v = T1.do
   incline 1
-  push1 x.fastavalues v
+  fc <- read1 x.fastacounter
+  push1 x.fastavalues (NL (fc, v))
+  write1 x.fastacounter (S fc)
   fvs@(_::_) <- getList x.fastavalues | [] => pure FEmpty
   case Prelude.any isHeader fvs && Prelude.any isData fvs of
     True  => pure FBroken
@@ -217,39 +258,39 @@ onEOI = T1.do
 fastaInit : DFA q FSz FSTCK
 fastaInit =
   dfa
-    [ read '>' (\_ => onFASTAValueHdrS HeaderStart)
+    [ read '>' (\_ => onFASTAValueHdrS)
     ]
 
 fastaHdrStrStart : DFA q FSz FSTCK
 fastaHdrStrStart =
   dfa
-    [ read dot (onFASTAValueHdrR . HeaderValue)
+    [ read dot (\str => onFASTAValueHdrR str)
     ]
 
 fastaHdrStrRest : DFA q FSz FSTCK
 fastaHdrStrRest =
   dfa
-    [ read dot (onFASTAValueHdrR . HeaderValue)
-    , conv linebreak (onNLFHdr . NL)
+    [ read dot (\str => onFASTAValueHdrR str)
+    , conv linebreak (\bs => onNLFHdr bs)
     ]
 
 fastaFDInit : DFA q FSz FSTCK
 fastaFDInit =
   dfa
-    [ read adenine (\_ => onFASTAValueAdenine Adenine)
-    , read thymine (\_ => onFASTAValueThymine Thymine)
-    , read guanine (\_ => onFASTAValueGuanine Guanine)
-    , read cytosine (\_ => onFASTAValueCytosine Cytosine)
+    [ read adenine (\_ => onFASTAValueAdenine)
+    , read thymine (\_ => onFASTAValueThymine)
+    , read guanine (\_ => onFASTAValueGuanine)
+    , read cytosine (\_ => onFASTAValueCytosine)
     ]
 
 fastaFD : DFA q FSz FSTCK
 fastaFD =
   dfa
-    [ conv linebreak (onNLFD . NL)
-    , read adenine (\_ => onFASTAValueAdenine Adenine)
-    , read thymine (\_ => onFASTAValueThymine Thymine)
-    , read guanine (\_ => onFASTAValueGuanine Guanine)
-    , read cytosine (\_ => onFASTAValueCytosine Cytosine)
+    [ conv linebreak (\bs => onNLFD bs)
+    , read adenine (\_ => onFASTAValueAdenine)
+    , read thymine (\_ => onFASTAValueThymine)
+    , read guanine (\_ => onFASTAValueGuanine)
+    , read cytosine (\_ => onFASTAValueCytosine)
     ]
 
 fastaSteps : Lex1 q FSz FSTCK
@@ -277,28 +318,30 @@ fastaEOI st x =
 --------------------------------------------------------------------------------
 
 export
-fasta : P1 q (BoundedErr Void) FSz FSTCK FASTA
-fasta = P FIni fastainit fastaSteps snocChunk fastaErr fastaEOI
+fasta : CoordinateSystem -> P1 q (BoundedErr Void) FSz FSTCK FASTA
+fasta coordsys = P FIni (fastainit coordsys) fastaSteps snocChunk fastaErr fastaEOI
 
 export %inline
-parseFASTA : Origin -> String -> Either (ParseError Void) FASTA
-parseFASTA = parseString fasta
+parseFASTA : CoordinateSystem -> Origin -> String -> Either (ParseError Void) FASTA
+parseFASTA coordsys origin str = parseString (fasta coordsys) origin str
 
 --------------------------------------------------------------------------------
 --          Streaming
 --------------------------------------------------------------------------------
 
-streamFASTA :  String
+streamFASTA :  CoordinateSystem
+            -> String
             -> AsyncPull Poll Void [ParseError Void, Errno] ()
-streamFASTA pth =
+streamFASTA coordsys pth =
      readBytes pth
-  |> streamParse fasta (FileSrc pth)
+  |> streamParse (fasta coordsys) (FileSrc pth)
   |> C.count
   |> printLnTo Stdout
 
-streamFASTAFiles :  AsyncPull Poll String [ParseError Void, Errno] ()
+streamFASTAFiles :  CoordinateSystem
+                 -> AsyncPull Poll String [ParseError Void, Errno] ()
                  -> AsyncPull Poll Void [ParseError Void, Errno] ()
-streamFASTAFiles pths =
-     flatMap pths (\p => readBytes p |> streamParse fasta (FileSrc p))
+streamFASTAFiles coordsys pths =
+     flatMap pths (\p => readBytes p |> streamParse (fasta coordsys) (FileSrc p))
   |> C.count
   |> printLnTo Stdout

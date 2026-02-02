@@ -91,7 +91,7 @@ fastastremptyerr =
 
 testErr : String -> String -> Property
 testErr s exp =
-  let res := case parseFASTA Virtual s of
+  let res := case parseFASTA OneBased Virtual s of
         Left e  => interpolate e
         Right v => show v
    in property1 $ res === exp
@@ -102,15 +102,23 @@ testErr s exp =
 
 prop_minimal_roundtrip : Property
 prop_minimal_roundtrip = property1 $ do
-  Right parsedfastastrminimal <- pure $ parseFASTA Virtual fastastrminimal
+  Right parsedfastastrminimal <- pure $ parseFASTA OneBased Virtual fastastrminimal
     | Left _ => failure
-  parseFASTA Virtual (showFASTA parsedfastastrminimal) === Right parsedfastastrminimal
+  parseFASTA OneBased Virtual (showFASTA parsedfastastrminimal) === Right parsedfastastrminimal
+
+prop_minimal : Property
+prop_minimal = property1 $ do
+  Right parsedfastastrminimal <- pure $ parseFASTA OneBased Virtual fastastrminimal
+    | Left _ => failure
+  parsedfastastrminimal === [ MkFASTALine {nr = 1, values = [HeaderStart 1, HeaderValue (2, "x"), NL (3, pack [10])]}
+                            , MkFASTALine {nr = 2, values = [Adenine 4]}
+                            ]
 
 prop_roundtrip : Property
 prop_roundtrip = property1 $ do
-  Right parsedfastastr <- pure $ parseFASTA Virtual fastastr
+  Right parsedfastastr <- pure $ parseFASTA OneBased Virtual fastastr
     | Left _ => failure
-  parseFASTA Virtual (showFASTA parsedfastastr) === Right parsedfastastr
+  parseFASTA OneBased Virtual (showFASTA parsedfastastr) === Right parsedfastastr
 
 prop_no_header : Property
 prop_no_header = testErr fastastrnoheader fastastrnoheadererr
@@ -133,6 +141,7 @@ properties =
   MkGroup
     "FASTA.Parser"
     [ ("prop_minimal_roundtrip", prop_minimal_roundtrip)
+    , ("prop_minimal", prop_minimal)
     , ("prop_roundtrip", prop_roundtrip)
     , ("prop_no_header", prop_no_header)
     , ("prop_header_after_sequence", prop_header_after_sequence)
