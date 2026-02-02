@@ -140,30 +140,19 @@ HasBytes FSTCK where
 
 export
 fastainit : CoordinateSystem -> F1 q (FSTCK q)
-fastainit coordsys =
-  case coordsys of
-    ZeroBased => T1.do
-      l  <- ref1 Z
-      c  <- ref1 Z
-      bs <- ref1 [<]
-      ss <- ref1 [<]
-      er <- ref1 Nothing
-      fvs <- ref1 [<]
-      fls <- ref1 [<]
-      fc <- ref1 Z
-      by <- ref1 ""
-      pure (F l c bs ss er fvs fls fc by)
-    OneBased => T1.do
-      l  <- ref1 Z
-      c  <- ref1 Z
-      bs <- ref1 [<]
-      ss <- ref1 [<]
-      er <- ref1 Nothing
-      fvs <- ref1 [<]
-      fls <- ref1 [<]
-      fc <- ref1 (S Z)
-      by <- ref1 ""
-      pure (F l c bs ss er fvs fls fc by)
+fastainit coordsys = T1.do
+  l  <- ref1 Z
+  c  <- ref1 Z
+  bs <- ref1 [<]
+  ss <- ref1 [<]
+  er <- ref1 Nothing
+  fvs <- ref1 [<]
+  fls <- ref1 [<]
+  fc <- case coordsys of
+          ZeroBased => ref1 Z
+          OneBased => ref1 (S Z)
+  by <- ref1 ""
+  pure (F l c bs ss er fvs fls fc by)
 
 --------------------------------------------------------------------------------
 --          Parser State
