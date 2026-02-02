@@ -110,8 +110,8 @@ prop_minimal : Property
 prop_minimal = property1 $ do
   Right parsedfastastrminimal <- pure $ parseFASTA OneBased Virtual fastastrminimal
     | Left _ => failure
-  parsedfastastrminimal === [ MkFASTALine {nr = 1, values = [HeaderStart 1, HeaderValue (2, "x"), NL (3, pack [10])]}
-                            , MkFASTALine {nr = 2, values = [Adenine 4]}
+  parsedfastastrminimal === [ MkFASTALine {nr = 1, values = [HeaderStart, HeaderValue "x", NL (pack [10])]}
+                            , MkFASTALine {nr = 2, values = [Adenine 1]}
                             ]
 
 prop_roundtrip : Property

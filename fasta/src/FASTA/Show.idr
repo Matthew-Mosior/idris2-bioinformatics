@@ -10,13 +10,13 @@ import FASTA.Parser
 
 export
 showFASTAValue : FASTAValue -> String
-showFASTAValue (NL (_, v))          = toString v
-showFASTAValue (HeaderStart _)      = ">"
-showFASTAValue (HeaderValue (_, v)) = v
-showFASTAValue (Adenine _)          = "A"
-showFASTAValue (Thymine _)          = "T"
-showFASTAValue (Guanine _)          = "G"
-showFASTAValue (Cytosine _)         = "C"
+showFASTAValue (NL v)          = toString v
+showFASTAValue HeaderStart     = ">"
+showFASTAValue (HeaderValue v) = v
+showFASTAValue (Adenine _)     = "A"
+showFASTAValue (Thymine _)     = "T"
+showFASTAValue (Guanine _)     = "G"
+showFASTAValue (Cytosine _)    = "C"
 
 export
 showFASTALine : FASTALine -> String
