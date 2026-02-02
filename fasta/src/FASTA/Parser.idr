@@ -33,9 +33,9 @@ data CoordinateSystem = ZeroBased
 
 public export
 data FASTAValue : Type where
-  NL          : (Nat, ByteString) -> FASTAValue
-  HeaderStart : Nat -> FASTAValue
-  HeaderValue : (Nat, String) -> FASTAValue
+  NL          : ByteString -> FASTAValue
+  HeaderStart : FASTAValue
+  HeaderValue : String -> FASTAValue
   Adenine     : Nat -> FASTAValue
   Thymine     : Nat -> FASTAValue
   Guanine     : Nat -> FASTAValue
@@ -44,7 +44,7 @@ data FASTAValue : Type where
 %runElab derive "FASTAValue" [Show,Eq]
 
 isHeader : FASTAValue -> Bool
-isHeader (HeaderStart _) = True
+isHeader HeaderStart     = True
 isHeader (HeaderValue _) = True
 isHeader _               = False
 
@@ -188,15 +188,11 @@ fastaErr =
 --          State Transitions
 --------------------------------------------------------------------------------
 
-onFASTAValueHdrS : (x : FSTCK q) => F1 q FST
-onFASTAValueHdrS = T1.do
-  fc <- read1 x.fastacounter
-  push1 x.fastavalues (HeaderStart fc) >> write1 x.fastacounter (S fc) >> pure FHdrToNLS
+onFASTAValueHdrS : (x : FSTCK q) => FASTAValue -> F1 q FST
+onFASTAValueHdrS v = push1 x.fastavalues v >> pure FHdrToNLS
 
-onFASTAValueHdrR : (x : FSTCK q) => String -> F1 q FST
-onFASTAValueHdrR v = T1.do
-  fc <- read1 x.fastacounter
-  push1 x.fastavalues (HeaderValue (fc, v)) >> write1 x.fastacounter (S fc) >> pure FHdrToNLR
+onFASTAValueHdrR : (x : FSTCK q) => FASTAValue -> F1 q FST
+onFASTAValueHdrR v = push1 x.fastavalues v >> pure FHdrToNLR
 
 onFASTAValueAdenine : (x : FSTCK q) => F1 q FST
 onFASTAValueAdenine = T1.do
@@ -221,9 +217,7 @@ onFASTAValueCytosine = T1.do
 onNLFHdr : (x : FSTCK q) => ByteString -> F1 q FST
 onNLFHdr v = T1.do
   incline 1
-  fc <- read1 x.fastacounter
-  push1 x.fastavalues (NL (fc, v))
-  write1 x.fastacounter (S fc)
+  push1 x.fastavalues (NL v)
   fvs@(_::_) <- getList x.fastavalues | [] => pure FEmpty
   case Prelude.any isHeader fvs && Prelude.any isData fvs of
     True  => pure FBroken
@@ -235,9 +229,7 @@ onNLFHdr v = T1.do
 onNLFD : (x : FSTCK q) => ByteString -> F1 q FST
 onNLFD v = T1.do
   incline 1
-  fc <- read1 x.fastacounter
-  push1 x.fastavalues (NL (fc, v))
-  write1 x.fastacounter (S fc)
+  push1 x.fastavalues (NL v)
   fvs@(_::_) <- getList x.fastavalues | [] => pure FEmpty
   case Prelude.any isHeader fvs && Prelude.any isData fvs of
     True  => pure FBroken
@@ -258,19 +250,19 @@ onEOI = T1.do
 fastaInit : DFA q FSz FSTCK
 fastaInit =
   dfa
-    [ read '>' (\_ => onFASTAValueHdrS)
+    [ read '>' (\_ => onFASTAValueHdrS HeaderStart)
     ]
 
 fastaHdrStrStart : DFA q FSz FSTCK
 fastaHdrStrStart =
   dfa
-    [ read dot (\str => onFASTAValueHdrR str)
+    [ read dot (onFASTAValueHdrR . HeaderValue)
     ]
 
 fastaHdrStrRest : DFA q FSz FSTCK
 fastaHdrStrRest =
   dfa
-    [ read dot (\str => onFASTAValueHdrR str)
+    [ read dot (onFASTAValueHdrR . HeaderValue)
     , conv linebreak (\bs => onNLFHdr bs)
     ]
 
