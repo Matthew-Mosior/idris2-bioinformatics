@@ -298,8 +298,8 @@ fastaEOI st x =
 --          Parser
 --------------------------------------------------------------------------------
 
-export
-fasta : CoordinateSystem -> P1 q (BoundedErr Void) FSz FSTCK FASTA
+public export
+fasta : CoordinateSystem -> P1 q (BoundedErr Void) FASTA
 fasta coordsys = P FIni (fastainit coordsys) fastaSteps snocChunk fastaErr fastaEOI
 
 export %inline
