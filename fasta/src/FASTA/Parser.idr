@@ -9,7 +9,7 @@ import FS.Posix
 import IO.Async.Loop.Epoll
 import IO.Async.Loop.Posix
 import Syntax.T1
-import Text.ILex.Derive
+import Text.ILex.State.Derive
 import Text.ILex.FS
 
 import public Text.ILex
