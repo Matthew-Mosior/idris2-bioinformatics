@@ -252,26 +252,26 @@ onEOI = T1.do
   push1 x.fastalines (MkFASTALine ln fvs)
   pure (Right FComplete)
 
-fastaInit : DFA q FSz FSTCK
+fastaInit : DFA1 q FSz FSTCK
 fastaInit =
   dfa
     [ string '>' (\_ => onFASTAValueHdrS HeaderStart)
     ]
 
-fastaHdrStrStart : DFA q FSz FSTCK
+fastaHdrStrStart : DFA1 q FSz FSTCK
 fastaHdrStrStart =
   dfa
     [ string dot (onFASTAValueHdrR . HeaderValue)
     ]
 
-fastaHdrStrRest : DFA q FSz FSTCK
+fastaHdrStrRest : DFA1 q FSz FSTCK
 fastaHdrStrRest =
   dfa
     [ string dot (onFASTAValueHdrR . HeaderValue)
     , bytes linebreak (\bs => onNLFHdr bs)
     ]
 
-fastaFDInit : DFA q FSz FSTCK
+fastaFDInit : DFA1 q FSz FSTCK
 fastaFDInit =
   dfa
     [ step adenine onFASTAValueAdenine
@@ -280,7 +280,7 @@ fastaFDInit =
     , step cytosine onFASTAValueCytosine
     ]
 
-fastaFD : DFA q FSz FSTCK
+fastaFD : DFA1 q FSz FSTCK
 fastaFD =
   dfa
     [ bytes linebreak onNLFD
